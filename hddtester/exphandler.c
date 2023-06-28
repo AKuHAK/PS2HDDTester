@@ -38,7 +38,7 @@ static char codeTxt[14][24] =
 char _exceptionStack[8 * 1024] __attribute__((aligned(16)));
 eeReg _savedRegs[32 + 4] __attribute__((aligned(16)));
 
-void* oldExceptionHandlers[14];
+void *oldExceptionHandlers[14];
 static s32 userThreadID = 0;
 u32 _exceptionTriggered = 0;
 
@@ -59,7 +59,7 @@ void pkoDebug(int cause, int badvaddr, int status, int epc, eeReg *regs)
     }
 
     code = cause & 0x7c;
-    
+
     init_scr();
     excpPrintf = scr_printf;
 
@@ -78,11 +78,10 @@ void pkoDebug(int cause, int badvaddr, int status, int epc, eeReg *regs)
     }
     excpPrintf("\n");
 
-    u32* pStack = (u32*)regs[29].uint64[0];
-    for (i = 0; i < 5; i++)
-    {
+    u32 *pStack = (u32 *)regs[29].uint64[0];
+    for (i = 0; i < 5; i++) {
         excpPrintf("+0x%02X %08x %08x %08x %08x %08x %08x %08x %08x\n", (i * 0x20), pStack[(i * 0x20) + 0], pStack[(i * 0x20) + 1], pStack[(i * 0x20) + 2], pStack[(i * 0x20) + 4],
-            pStack[(i * 0x20) + 4], pStack[(i * 0x20) + 5], pStack[(i * 0x20) + 6], pStack[(i * 0x20) + 7]);
+                   pStack[(i * 0x20) + 4], pStack[(i * 0x20) + 5], pStack[(i * 0x20) + 6], pStack[(i * 0x20) + 7]);
     }
     SleepThread();
 }

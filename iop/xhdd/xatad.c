@@ -4,7 +4,7 @@
 
 #include "opl-hdd-ioctl.h"
 
-void ata_get_error_info(int* status, int* error)
+void ata_get_error_info(int *status, int *error)
 {
     USE_ATA_REGS;
 

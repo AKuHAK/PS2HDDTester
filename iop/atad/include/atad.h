@@ -80,8 +80,8 @@ void ata_reset_crc_error_count();
 
 int ata_device_identify(int device, void *info);
 
-#define atad_IMPORTS_start DECLARE_IMPORT_TABLE(atad, 1, 3)
-#define atad_IMPORTS_end   END_IMPORT_TABLE
+#define atad_IMPORTS_start                DECLARE_IMPORT_TABLE(atad, 1, 3)
+#define atad_IMPORTS_end                  END_IMPORT_TABLE
 
 #define I_ata_get_devinfo                 DECLARE_IMPORT(4, ata_get_devinfo)
 #define I_ata_reset_devices               DECLARE_IMPORT(5, ata_reset_devices)

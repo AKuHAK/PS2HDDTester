@@ -20,24 +20,24 @@ static u64 io_timer = 0;
 
 static hddAtaError_t ata_error_info;
 
-extern void ata_get_error_info(int* status, int* error);
+extern void ata_get_error_info(int *status, int *error);
 extern int ata_device_set_transfer_mode(int device, int type, int mode);
 
-static u32 ComputeTimeDiff(iop_sys_clock_t* pStart,iop_sys_clock_t* pEnd)
+static u32 ComputeTimeDiff(iop_sys_clock_t *pStart, iop_sys_clock_t *pEnd)
 {
-	iop_sys_clock_t	Diff;
-	u32 iSec, iUSec, iDiff;
+    iop_sys_clock_t Diff;
+    u32 iSec, iUSec, iDiff;
 
-	Diff.lo=pEnd->lo-pStart->lo;
-	Diff.hi=pEnd->hi-pStart->hi - (pStart->lo>pEnd->lo);
+    Diff.lo = pEnd->lo - pStart->lo;
+    Diff.hi = pEnd->hi - pStart->hi - (pStart->lo > pEnd->lo);
 
-	SysClock2USec(&Diff, &iSec, &iUSec);
-	iDiff=(iSec*1000)+(iUSec/1000);
+    SysClock2USec(&Diff, &iSec, &iUSec);
+    iDiff = (iSec * 1000) + (iUSec / 1000);
 
-	return ((iDiff != 0) ? iDiff : 1);
+    return ((iDiff != 0) ? iDiff : 1);
 }
 
-static int BlockRead(hddAtaReadTest_t* pArgs)
+static int BlockRead(hddAtaReadTest_t *pArgs)
 {
     SifDmaTransfer_t dmaInfo;
     int dmaId;
@@ -54,8 +54,7 @@ static int BlockRead(hddAtaReadTest_t* pArgs)
         ata_get_error_info(&ata_error_info.status, &ata_error_info.error);
 
     // Check if we should copy it to the EE.
-    if (pArgs->copy_to_ee != 0)
-    {
+    if (pArgs->copy_to_ee != 0) {
         // Setup and kickoff the dma transfer.
         dmaInfo.src = pArgs->iop_buffer;
         dmaInfo.dest = pArgs->ee_buffer;
@@ -67,7 +66,8 @@ static int BlockRead(hddAtaReadTest_t* pArgs)
         CpuResumeIntr(intrState);
 
         // Wait for the dma operation to complete.
-        while (sceSifDmaStat(dmaId) >= 0);
+        while (sceSifDmaStat(dmaId) >= 0)
+            ;
     }
 
     return result;
@@ -99,8 +99,8 @@ static int xhddClose(iomanX_iop_file_t *f)
 
 static int xhddRead(iomanX_iop_file_t *f, void *buf, int size)
 {
-    //iop_sys_clock_t startTime;
-    //iop_sys_clock_t endTime;
+    // iop_sys_clock_t startTime;
+    // iop_sys_clock_t endTime;
 
     if (f->unit >= 2)
         return -ENXIO;
@@ -112,11 +112,11 @@ static int xhddRead(iomanX_iop_file_t *f, void *buf, int size)
     u32 sectorCount = size / 512;
 
     // Read the sector(s) from the drive.
-    //GetSystemTime(&startTime);
+    // GetSystemTime(&startTime);
     int ret = ata_device_sector_io64(f->unit, buf, lba_pos, sectorCount, ATA_DIR_READ);
-    //GetSystemTime(&endTime);
-    
-    //io_timer += ComputeTimeDiff(&startTime, &endTime);
+    // GetSystemTime(&endTime);
+
+    // io_timer += ComputeTimeDiff(&startTime, &endTime);
 
     lba_pos += sectorCount;
 
@@ -125,11 +125,15 @@ static int xhddRead(iomanX_iop_file_t *f, void *buf, int size)
 
 static s64 xhddLseek64(iomanX_iop_file_t *f, s64 pos, int whence)
 {
-    switch (whence)
-    {
-        case FIO_SEEK_SET: lba_pos = (u64)pos; break;
-        case FIO_SEEK_CUR: lba_pos += (u64)pos; break;
-        case FIO_SEEK_END: return -EINVAL;
+    switch (whence) {
+        case FIO_SEEK_SET:
+            lba_pos = (u64)pos;
+            break;
+        case FIO_SEEK_CUR:
+            lba_pos += (u64)pos;
+            break;
+        case FIO_SEEK_END:
+            return -EINVAL;
     }
 
     return 0;
@@ -146,63 +150,54 @@ static int xhddDevctl(iop_file_t *fd, const char *name, int cmd, void *arg, unsi
         return -ENXIO;
 
     switch (cmd) {
-        case ATA_DEVCTL_SET_TRANSFER_MODE:
-        {
+        case ATA_DEVCTL_SET_TRANSFER_MODE: {
             if (!isHDPro)
                 return ata_device_set_transfer_mode(fd->unit, ((hddAtaSetMode_t *)arg)->type, ((hddAtaSetMode_t *)arg)->mode);
             else
                 return -ENXIO;
         }
-        case ATA_DEVCTL_IDENTIFY:
-        {
+        case ATA_DEVCTL_IDENTIFY: {
             // Make sure the output buffer is large enough to hold the ATA_IDENTIFY structure.
             if (buflen < 512)
                 return -EINVAL;
 
             return ata_device_identify(fd->unit, buf);
         }
-        case ATA_DEVCTL_GET_CRC_ERROR_COUNT:
-        {
+        case ATA_DEVCTL_GET_CRC_ERROR_COUNT: {
             // Make sure the output buffer is large enough.
             if (buflen < sizeof(u64))
                 return -EINVAL;
 
-            *(u64*)buf = ata_get_crc_error_count();
+            *(u64 *)buf = ata_get_crc_error_count();
             return 0;
         }
-        case ATA_DEVCTL_RESET_CRC_ERROR_COUNT:
-        {
+        case ATA_DEVCTL_RESET_CRC_ERROR_COUNT: {
             ata_reset_crc_error_count();
             return 0;
         }
-        case ATA_DEVCTL_START_TIMER:
-        {
+        case ATA_DEVCTL_START_TIMER: {
             io_timer = 0;
             return 0;
         }
-        case ATA_DEVCTL_GET_TIMER:
-        {
+        case ATA_DEVCTL_GET_TIMER: {
             // Make sure the output buffer is large enough.
             if (buflen < sizeof(u64))
                 return -EINVAL;
 
-            *(u64*)buf = io_timer;
+            *(u64 *)buf = io_timer;
             return 0;
         }
-        case ATA_DEVCTL_READ_BLOCK:
-        {
+        case ATA_DEVCTL_READ_BLOCK: {
             // Make sure the input buffer is valid.
             if (arg == NULL || arglen < sizeof(hddAtaReadTest_t))
                 return -EINVAL;
 
-            return BlockRead((hddAtaReadTest_t*)arg);
+            return BlockRead((hddAtaReadTest_t *)arg);
         }
-        case ATA_DEVCTL_FLUSH_CACHE:
-        {
+        case ATA_DEVCTL_FLUSH_CACHE: {
             return ata_device_flush_cache(fd->unit);
         }
-        case ATA_DEVCTL_GET_ATA_ERROR:
-        {
+        case ATA_DEVCTL_GET_ATA_ERROR: {
             // Make sure the input buffer is valid.
             if (arg == NULL || arglen < sizeof(hddAtaError_t))
                 return -EINVAL;
