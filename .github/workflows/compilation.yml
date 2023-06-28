@@ -17,6 +17,8 @@ jobs:
       uses: actions/checkout@v3
 
     - run: |
+        git clone https://github.com/ps2dev/ps2sdk
+        echo "$GITHUB_WORKSPACE/ps2sdk" >> $PS2SDKSRC
         cd hddtester
         make
 
