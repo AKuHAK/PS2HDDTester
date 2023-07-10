@@ -306,6 +306,12 @@ void PrintHDDInfo()
     u32 hddCapacity, hddSizeStringIndex;
     GetHDDCapacity(&hddCapacity, &hddSizeStringIndex);
     scr_printf("\tDrive capacity: %d%s | Sector size: %dbytes\n", hddCapacity, (hddSizeStringIndex < 5 ? SIZE_STRINGS[hddSizeStringIndex] : " UNK"), GetSectorSize());
+
+    u32 smart_status = fileXioDevctl(deviceString, ATA_DEVCTL_DEVICE_SMART_STATUS, NULL, 0, NULL, 0);
+    if (smart_status)
+        scr_printf("\tS.M.A.R.T. = BAD\n");
+    else
+        scr_printf("\tS.M.A.R.T. = OK\n");
 }
 
 typedef struct
@@ -446,7 +452,7 @@ void TestEndCommon()
 {
     // Print return message.
     scr_printf(" \n");
-    scr_printf("Press triangle (^) to return to the main menu...\n");
+    scr_printf("Press TRIANGLE (^) to return to the main menu...\n");
     while (1) {
         // Update input.
         int ret = PollPadState(0, 0);
@@ -562,7 +568,7 @@ int main(int argc, char *argv[])
                         else if ((pad_buttons_current & PAD_SQUARE) != 0) {
                             device = (device ^ 1) & 1;
                             ata_identify_data_valid = 0;
-                            _print("switch HDD %d to %d", (device ^ 1) & 1, device);
+                            _print("Switch HDD %d to %d\n", (device ^ 1) & 1, device);
                         } else if ((pad_buttons_current & PAD_CROSS) != 0)
                             menu_id = main_menu_options[menu_option_index].menu_id;
                         else if ((pad_buttons_raw & PAD_START) != 0 && (pad_buttons_raw & PAD_SELECT) != 0) {

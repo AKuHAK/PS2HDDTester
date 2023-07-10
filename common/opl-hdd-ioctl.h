@@ -15,6 +15,7 @@
 
 #define ATA_DEVCTL_FLUSH_CACHE           0x6849
 #define ATA_DEVCTL_GET_ATA_ERROR         0x684A
+#define ATA_DEVCTL_DEVICE_SMART_STATUS   0x684B
 
 #define ATA_XFER_MODE_MDMA               0x20
 #define ATA_XFER_MODE_UDMA               0x40
