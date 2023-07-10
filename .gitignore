@@ -1,5 +1,3 @@
-**/.vs
-**/.vscode
 *.o
 *.irx
 *.bin
@@ -9,3 +7,9 @@
 **/bin
 **/irx
 **/lib
+
+.*
+
+!.github
+!.editorconfig
+!.clang-format
