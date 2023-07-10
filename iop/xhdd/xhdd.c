@@ -37,7 +37,7 @@ static u32 ComputeTimeDiff(iop_sys_clock_t *pStart, iop_sys_clock_t *pEnd)
     return ((iDiff != 0) ? iDiff : 1);
 }
 
-static int BlockRead(hddAtaReadTest_t *pArgs)
+static int BlockRead(int device, hddAtaReadTest_t *pArgs)
 {
     SifDmaTransfer_t dmaInfo;
     int dmaId;
@@ -46,7 +46,7 @@ static int BlockRead(hddAtaReadTest_t *pArgs)
     // TODO: Add time calculation once I figure out why GetSystemTime doesn't work...
 
     // Read the data from the HDD.
-    int result = ata_device_sector_io64(0, pArgs->iop_buffer, lba_pos, pArgs->block_size_in_sectors, ATA_DIR_READ);
+    int result = ata_device_sector_io64(device, pArgs->iop_buffer, lba_pos, pArgs->block_size_in_sectors, ATA_DIR_READ);
     lba_pos += pArgs->block_size_in_sectors;
 
     // If an error occured save  it before it gets reset.
@@ -77,6 +77,7 @@ static int xhddInit(iop_device_t *device)
 {
     // Force atad to initialize the hdd devices.
     ata_get_devinfo(0);
+    ata_get_devinfo(1);
 
     return 0;
 }
@@ -192,7 +193,7 @@ static int xhddDevctl(iop_file_t *fd, const char *name, int cmd, void *arg, unsi
             if (arg == NULL || arglen < sizeof(hddAtaReadTest_t))
                 return -EINVAL;
 
-            return BlockRead((hddAtaReadTest_t *)arg);
+            return BlockRead(fd->unit, (hddAtaReadTest_t *)arg);
         }
         case ATA_DEVCTL_FLUSH_CACHE: {
             return ata_device_flush_cache(fd->unit);
