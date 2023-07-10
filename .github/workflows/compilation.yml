@@ -11,14 +11,12 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/ps2homebrew/ps2homebrew:main
+      image: ghcr.io/akuhak/ps2homebrew:main
     steps:
     - name: git checkout
       uses: actions/checkout@v3
 
     - run: |
-        git clone https://github.com/ps2dev/ps2sdk
-        echo "$GITHUB_WORKSPACE/ps2sdk" >> $PS2SDKSRC
         cd hddtester
         make
 
