@@ -254,6 +254,14 @@ void PrintHDDInfo()
 
     // Check if we need to query the data identify data.
     if (ata_identify_data_valid == 0) {
+        // workaround for slave, as UltraDMAActive = 0 for them, we need to force some UDMA mode
+        if (device) {
+            hddAtaSetMode_t setMode;
+            setMode.type = ATA_XFER_MODE_UDMA;
+            setMode.mode = 0;
+            fileXioDevctl(deviceString, ATA_DEVCTL_SET_TRANSFER_MODE, &setMode, sizeof(setMode), NULL, 0);
+        }
+
         // Run the ATA_IDENTIFY command to get device info.
         int ret = fileXioDevctl(deviceString, ATA_DEVCTL_IDENTIFY, NULL, 0, &ata_identify_data, sizeof(ata_identify_data));
         if (ret != 0) {
@@ -268,6 +276,7 @@ void PrintHDDInfo()
             scr_printf("Received incomplete response from HDD %d!\n", device);
             SleepThread();
         }
+        _print("ata_identify_data.UltraDMAActive = 0x%hu\n", ata_identify_data.UltraDMAActive);
 
         // Byte flip the serial and model number strings.
         ByteFlipString((u16 *)&ata_identify_data.SerialNumber, sizeof(ata_identify_data.SerialNumber) / sizeof(u16));
