@@ -42,6 +42,7 @@ static IDENTIFY_DEVICE_DATA ata_identify_data;
 static char serialNumber[21] = {0};
 static char modelNumber[41] = {0};
 static int ata_identify_data_valid = 0;
+static int device = 0;
 static void *iop_io_buffer = NULL;
 
 // Disable kernel patches and extra stuff we don't want.
@@ -248,20 +249,23 @@ void ByteFlipString(u16 *pBuffer, int count)
 
 void PrintHDDInfo()
 {
+    char deviceString[7];
+    sprintf(deviceString, "xhdd%d:", device);
+
     // Check if we need to query the data identify data.
     if (ata_identify_data_valid == 0) {
         // Run the ATA_IDENTIFY command to get device info.
-        int ret = fileXioDevctl("xhdd0:", ATA_DEVCTL_IDENTIFY, NULL, 0, &ata_identify_data, sizeof(ata_identify_data));
+        int ret = fileXioDevctl(deviceString, ATA_DEVCTL_IDENTIFY, NULL, 0, &ata_identify_data, sizeof(ata_identify_data));
         if (ret != 0) {
             // No HDD detected.
-            scr_printf("No HDD detected!\n");
+            scr_printf("No HDD %d detected!\n", device);
             SleepThread();
         }
 
         // Check for an incomplete reply.
         if (ata_identify_data.GeneralConfiguration.ResponseIncomplete != 0) {
             // Response is incomplete.
-            scr_printf("Received incomplete response from drive!\n");
+            scr_printf("Received incomplete response from HDD %d!\n", device);
             SleepThread();
         }
 
@@ -276,29 +280,32 @@ void PrintHDDInfo()
     }
 
     // Print model and serial numbers:
-    scr_printf("HDD 0 detected: %s - %s\n", modelNumber, serialNumber);
+    scr_printf("HDD %d detected: %s - %s\n", device, modelNumber, serialNumber);
 
     // Print command set/supported features info:
     u8 lba48Supported = ata_identify_data.CommandSetSupport.BigLba;
     scr_printf("\tLBA command set: %s\n", (lba48Supported == 0 ? "LBA28" : "LBA48"));
 
     u32 highestUDMAMode = GetHighestUDMAMode();
-    if (highestUDMAMode != 0xFFFFFFFF)
-        scr_printf("\tHighest UDMA mode supported: UDMA %d\n", highestUDMAMode);
-    else
-        scr_printf("\tHighest UDMA mode supported: Bad Data\n");
-
     u32 selectedUDMAMode = GetSelectedUDMAMode();
-    if (selectedUDMAMode != 0xFFFFFFFF)
-        scr_printf("\tSelected UDMA mode: UDMA %d\n", selectedUDMAMode);
-    else
-        scr_printf("\tSelected UDMA mode: Bad Data\n");
+
+    if (highestUDMAMode != 0xFFFFFFFF) {
+        if (selectedUDMAMode != 0xFFFFFFFF)
+            scr_printf("\tUDMA mode: %d / %d\n", selectedUDMAMode, highestUDMAMode);
+        else
+            scr_printf("\tUDMA mode: ? / %d\n", highestUDMAMode);
+    } else {
+        if (selectedUDMAMode != 0xFFFFFFFF)
+            scr_printf("\tUDMA mode: %d / ?\n", selectedUDMAMode);
+        else
+            scr_printf("\tUDMA mode: ? / ?\n");
+    }
+
 
     // Print capacity and sector size:
     u32 hddCapacity, hddSizeStringIndex;
     GetHDDCapacity(&hddCapacity, &hddSizeStringIndex);
-    scr_printf("\tSector size: %d\n", GetSectorSize());
-    scr_printf("\tDrive capacity: %d%s\n", hddCapacity, (hddSizeStringIndex < 5 ? SIZE_STRINGS[hddSizeStringIndex] : " UNK"));
+    scr_printf("\tDrive capacity: %d%s | Sector size: %dbytes\n", hddCapacity, (hddSizeStringIndex < 5 ? SIZE_STRINGS[hddSizeStringIndex] : " UNK"), GetSectorSize());
 }
 
 typedef struct
@@ -311,6 +318,8 @@ void RunSequentialRawReadTest(u32 sizeInMb, u32 blockSizeInKb, int fullpass, int
     hddAtaError_t errorInfo = {0};
     hddAtaSetMode_t setMode;
     setMode.type = ATA_XFER_MODE_UDMA;
+    char deviceString[7];
+    sprintf(deviceString, "xhdd%d:", device);
 
     // Print the test banner.
     scr_printf("Sequential Raw Read %dMB block size %dKB HDD -> %s\n", sizeInMb, blockSizeInKb, (fullpass != 0 ? "EE" : "IOP"));
@@ -328,14 +337,14 @@ void RunSequentialRawReadTest(u32 sizeInMb, u32 blockSizeInKb, int fullpass, int
 
         // Set the UDMA mode.
         setMode.mode = i;
-        fileXioDevctl("xhdd0:", ATA_DEVCTL_SET_TRANSFER_MODE, &setMode, sizeof(setMode), NULL, 0);
+        fileXioDevctl(deviceString, ATA_DEVCTL_SET_TRANSFER_MODE, &setMode, sizeof(setMode), NULL, 0);
 
         // Refresh the identify data so we can get an accurate UDMA speed.
-        fileXioDevctl("xhdd0:", ATA_DEVCTL_IDENTIFY, NULL, 0, &ata_identify_data, sizeof(ata_identify_data));
+        fileXioDevctl(deviceString, ATA_DEVCTL_IDENTIFY, NULL, 0, &ata_identify_data, sizeof(ata_identify_data));
         u32 udmaModeUsed = GetSelectedUDMAMode();
 
         // Run the read test.
-        int result = SequentialRawReadTest(sizeInMb, blockSizeInKb, iop_io_buffer, fullpass, &crcErrorCount.value, &elapsedTimeMsecEE, &elapsedTimeMsecIOP.value);
+        int result = SequentialRawReadTest(device, sizeInMb, blockSizeInKb, iop_io_buffer, fullpass, &crcErrorCount.value, &elapsedTimeMsecEE, &elapsedTimeMsecIOP.value);
 
         // Calculate read stats.
         float timeInSecsEE = (float)((u32)elapsedTimeMsecEE) / 1000.0f;
@@ -356,7 +365,7 @@ void RunSequentialRawReadTest(u32 sizeInMb, u32 blockSizeInKb, int fullpass, int
                        i, udmaModeUsed, timeValueEE, timeUnits, transferSpeed, timeUnits, (u32)crcErrorCount.value, (crcErrorCount.value == 0 ? "PASSED" : "FAILED"));
         } else {
             // Get extended ATA error info.
-            fileXioDevctl("xhdd0:", ATA_DEVCTL_GET_ATA_ERROR, NULL, 0, &errorInfo, sizeof(errorInfo));
+            fileXioDevctl(deviceString, ATA_DEVCTL_GET_ATA_ERROR, NULL, 0, &errorInfo, sizeof(errorInfo));
             if (result == ATA_RES_ERR_IO)
                 scr_printf("\tIO Error: Status=0x%x Error=0x%x CRC Errors: %d\n", errorInfo.status, errorInfo.error, (u32)crcErrorCount.value);
             else if (result == ATA_RES_ERR_TIMEOUT)
@@ -372,6 +381,8 @@ void RunRandomRawReadTest(u32 sizeInMb, u32 blockSizeInKb, int fullpass, int udm
     hddAtaError_t errorInfo = {0};
     hddAtaSetMode_t setMode;
     setMode.type = ATA_XFER_MODE_UDMA;
+    char deviceString[7];
+    sprintf(deviceString, "xhdd%d:", device);
 
     // Print the test banner.
     scr_printf("Random Raw Read %dMB block size %dKB HDD -> %s\n", sizeInMb, blockSizeInKb, (fullpass != 0 ? "EE" : "IOP"));
@@ -392,14 +403,14 @@ void RunRandomRawReadTest(u32 sizeInMb, u32 blockSizeInKb, int fullpass, int udm
 
         // Set the UDMA mode.
         setMode.mode = i;
-        fileXioDevctl("xhdd0:", ATA_DEVCTL_SET_TRANSFER_MODE, &setMode, sizeof(setMode), NULL, 0);
+        fileXioDevctl(deviceString, ATA_DEVCTL_SET_TRANSFER_MODE, &setMode, sizeof(setMode), NULL, 0);
 
         // Refresh the identify data so we can get an accurate UDMA speed.
-        fileXioDevctl("xhdd0:", ATA_DEVCTL_IDENTIFY, NULL, 0, &ata_identify_data, sizeof(ata_identify_data));
+        fileXioDevctl(deviceString, ATA_DEVCTL_IDENTIFY, NULL, 0, &ata_identify_data, sizeof(ata_identify_data));
         u32 udmaModeUsed = GetSelectedUDMAMode();
 
         // Run the read test.
-        int result = RandomRawReadTest(sizeInMb, blockSizeInKb, iop_io_buffer, fullpass, hddCapacityInSectors, &crcErrorCount.value, &elapsedTimeMsecEE, &elapsedTimeMsecIOP.value);
+        int result = RandomRawReadTest(device, sizeInMb, blockSizeInKb, iop_io_buffer, fullpass, hddCapacityInSectors, &crcErrorCount.value, &elapsedTimeMsecEE, &elapsedTimeMsecIOP.value);
 
         // Calculate read stats.
         float timeInSecsEE = (float)((u32)elapsedTimeMsecEE) / 1000.0f;
@@ -420,7 +431,7 @@ void RunRandomRawReadTest(u32 sizeInMb, u32 blockSizeInKb, int fullpass, int udm
                        i, udmaModeUsed, timeValueEE, timeUnits, transferSpeed, timeUnits, (u32)crcErrorCount.value, (crcErrorCount.value == 0 ? "PASSED" : "FAILED"));
         } else {
             // Get extended ATA error info.
-            fileXioDevctl("xhdd0:", ATA_DEVCTL_GET_ATA_ERROR, NULL, 0, &errorInfo, sizeof(errorInfo));
+            fileXioDevctl(deviceString, ATA_DEVCTL_GET_ATA_ERROR, NULL, 0, &errorInfo, sizeof(errorInfo));
             if (result == ATA_RES_ERR_IO)
                 scr_printf("\tIO Error: Status=0x%x Error=0x%x CRC Errors: %d\n", errorInfo.status, errorInfo.error, (u32)crcErrorCount.value);
             else if (result == ATA_RES_ERR_TIMEOUT)
@@ -506,7 +517,8 @@ int main(int argc, char *argv[])
         scr_clear();
 
         // Print the banner message.
-        scr_printf("HDD Tester v1.0\n\n");
+        scr_printf(" \n");
+        scr_printf("HDD Tester v1.1 dual\n\n");
 
         // Check the menu id and handle accordingly.
         switch (menu_id) {
@@ -515,10 +527,9 @@ int main(int argc, char *argv[])
                 PrintHDDInfo();
                 scr_printf(" \n");
                 scr_printf(" \n");
-                scr_printf(" \n");
 
                 // Print hdd test options:
-                scr_printf("Select a test to run:\n");
+                scr_printf("Select a test to run on HDD %d:\n", device);
                 for (int i = 0; i < main_menu_option_count; i++) {
                     // Check if this is the currently selected option and handle accordingly.
                     if (menu_option_index == i)
@@ -531,8 +542,9 @@ int main(int argc, char *argv[])
                 scr_printf(" \n");
 
                 // Print help text.
-                scr_printf("Press Up/Down on DPAD to change options\n");
-                scr_printf("Press cross (X) button to run test\n");
+                scr_printf("Press UP/DOWN on DPAD to change options\n");
+                scr_printf("Press SQUARE button to switch hdd for test\n");
+                scr_printf("Press CROSS (X) button to run test\n");
                 scr_printf("Press START + SELECT to exit\n");
 
                 // Handle input.
@@ -547,7 +559,11 @@ int main(int argc, char *argv[])
                             menu_option_index = menu_option_index - 1 >= 0 ? menu_option_index - 1 : main_menu_option_count - 1;
                         else if ((pad_buttons_current & PAD_DOWN) != 0)
                             menu_option_index = menu_option_index + 1 < main_menu_option_count ? menu_option_index + 1 : 0;
-                        else if ((pad_buttons_current & PAD_CROSS) != 0)
+                        else if ((pad_buttons_current & PAD_SQUARE) != 0) {
+                            device = (device ^ 1) & 1;
+                            ata_identify_data_valid = 0;
+                            _print("switch HDD %d to %d", (device ^ 1) & 1, device);
+                        } else if ((pad_buttons_current & PAD_CROSS) != 0)
                             menu_id = main_menu_options[menu_option_index].menu_id;
                         else if ((pad_buttons_raw & PAD_START) != 0 && (pad_buttons_raw & PAD_SELECT) != 0) {
                             // Restore exception handlers and exit.

@@ -20,7 +20,7 @@
 #define ATA_RES_ERR_LOCKED     -509
 #define ATA_RES_ERR_ICRC       -510
 
-int SequentialRawReadTest(int mbToRead, int blockSizeKb, void *pIopBuffer, int fullPass, u64 *pCrcErrorCount, u64 *pElapsedTimeEE, u64 *pElapsedTimeIOP);
-int RandomRawReadTest(int mbToRead, int blockSizeKb, void *pIopBuffer, int fullPass, u64 hddMaxLBA, u64 *pCrcErrorCount, u64 *pElapsedTimeEE, u64 *pElapsedTimeIOP);
+int SequentialRawReadTest(int device, int mbToRead, int blockSizeKb, void *pIopBuffer, int fullPass, u64 *pCrcErrorCount, u64 *pElapsedTimeEE, u64 *pElapsedTimeIOP);
+int RandomRawReadTest(int device, int mbToRead, int blockSizeKb, void *pIopBuffer, int fullPass, u64 hddMaxLBA, u64 *pCrcErrorCount, u64 *pElapsedTimeEE, u64 *pElapsedTimeIOP);
 
 #endif
