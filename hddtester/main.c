@@ -289,14 +289,14 @@ void PrintHDDInfo()
         if (ret != 0) {
             // No HDD detected.
             scr_printf("No HDD %d detected!\n", device);
-            SleepThread();
+            return;
         }
 
         // Check for an incomplete reply.
         if (ata_identify_data.GeneralConfiguration.ResponseIncomplete != 0) {
             // Response is incomplete.
             scr_printf("Received incomplete response from HDD %d!\n", device);
-            SleepThread();
+            return;
         }
         _print("ata_identify_data.UltraDMAActive = 0x%hu\n", ata_identify_data.UltraDMAActive);
 
