@@ -172,7 +172,7 @@ void LoadIOPModules()
 u32 GetHighestUDMAMode()
 {
     // Check the highest UDMA mode supported.
-    for (int i = 7; i >= 0; i--) {
+    for (int i = 6; i >= 0; i--) {
         // Check if the current UDMA mode is supported.
         if ((ata_identify_data.UltraDMASupport & (1 << i)) != 0)
             return i;
@@ -184,9 +184,33 @@ u32 GetHighestUDMAMode()
 u32 GetSelectedUDMAMode()
 {
     // Check the highest UDMA mode selected.
-    for (int i = 7; i >= 0; i--) {
+    for (int i = 6; i >= 0; i--) {
         // Check if the current UDMA mode is selected.
         if ((ata_identify_data.UltraDMAActive & (1 << i)) != 0)
+            return i;
+    }
+
+    return 0xFFFFFFFF;
+}
+
+u32 GetSelectedMDMAMode()
+{
+    // Check the highest MDMA mode selected.
+    for (int i = 2; i >= 0; i--) {
+        // Check if the current MDMA mode is selected.
+        if ((ata_identify_data.MultiWordDMAActive & (1 << i)) != 0)
+            return i;
+    }
+
+    return 0xFFFFFFFF;
+}
+
+u32 GetSelectedPIOMode()
+{
+    // Check the highest UDMA mode selected.
+    for (int i = 2; i >= 0; i--) {
+        // Check if the current UDMA mode is selected.
+        if ((ata_identify_data.AdvancedPIOModes & (1 << i)) != 0)
             return i;
     }
 
@@ -296,16 +320,28 @@ void PrintHDDInfo()
     u32 highestUDMAMode = GetHighestUDMAMode();
     u32 selectedUDMAMode = GetSelectedUDMAMode();
 
-    if (highestUDMAMode != 0xFFFFFFFF) {
-        if (selectedUDMAMode != 0xFFFFFFFF)
-            scr_printf("\tUDMA mode: %d / %d\n", selectedUDMAMode, highestUDMAMode);
+    if (selectedUDMAMode != 0xFFFFFFFF) {
+        if (highestUDMAMode != 0xFFFFFFFF)
+            scr_printf("\tCurrent mode: UDMA%d / Max supported mode: UDMA%d\n", selectedUDMAMode, highestUDMAMode);
         else
-            scr_printf("\tUDMA mode: ? / %d\n", highestUDMAMode);
+            scr_printf("\tCurrent mode: UDMA%d / Max supported mode: ?\n", selectedUDMAMode);
     } else {
-        if (selectedUDMAMode != 0xFFFFFFFF)
-            scr_printf("\tUDMA mode: %d / ?\n", selectedUDMAMode);
-        else
-            scr_printf("\tUDMA mode: ? / ?\n");
+        u32 selectedMDMAMode = GetSelectedMDMAMode();
+        if (selectedMDMAMode != 0xFFFFFFFF) {
+            if (highestUDMAMode != 0xFFFFFFFF)
+                scr_printf("\tCurrent mode: MDMA%d / Max supported mode: UDMA%d\n", selectedMDMAMode, highestUDMAMode);
+            else
+                scr_printf("\tCurrent mode: MDMA%d / Max supported mode: ?\n", selectedMDMAMode);
+        } else {
+            u32 selectedPIOMode = GetSelectedPIOMode();
+            if (selectedPIOMode != 0xFFFFFFFF) {
+                if (highestUDMAMode != 0xFFFFFFFF)
+                    scr_printf("\tCurrent mode: PIO%d / Max supported mode: UDMA%d\n", selectedPIOMode, highestUDMAMode);
+                else
+                    scr_printf("\tCurrent mode: PIO%d / Max supported mode: ?\n", selectedPIOMode);
+            } else
+                scr_printf("\tCurrent mode: ? / Max supported mode: ?\n");
+        }
     }
 
     // Print capacity and sector size:
