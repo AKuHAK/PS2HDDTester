@@ -164,6 +164,13 @@ static int xhddDevctl(iop_file_t *fd, const char *name, int cmd, void *arg, unsi
 
             return ata_device_identify(fd->unit, buf);
         }
+        case ATA_DEVCTL_SCE_IDENTIFY: {
+            // Make sure the output buffer is large enough to hold the ATA_IDENTIFY structure.
+            if (buflen < 512)
+                return -EINVAL;
+
+            return ata_device_sce_identify_drive(fd->unit, buf);
+        }
         case ATA_DEVCTL_GET_CRC_ERROR_COUNT: {
             // Make sure the output buffer is large enough.
             if (buflen < sizeof(u64))
@@ -206,7 +213,7 @@ static int xhddDevctl(iop_file_t *fd, const char *name, int cmd, void *arg, unsi
             memcpy(arg, &ata_error_info, sizeof(ata_error_info));
             return 0;
         }
-        case ATA_DEVCTL_DEVICE_SMART_STATUS:  {
+        case ATA_DEVCTL_DEVICE_SMART_STATUS: {
             return ata_device_smart_get_status(fd->unit);
         }
         default:

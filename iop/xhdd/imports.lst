@@ -7,6 +7,7 @@ I_ata_device_sector_io64
 I_ata_get_crc_error_count
 I_ata_reset_crc_error_count
 I_ata_device_identify
+I_ata_device_sce_identify_drive
 I_ata_device_flush_cache
 I_ata_device_smart_get_status
 atad_IMPORTS_end

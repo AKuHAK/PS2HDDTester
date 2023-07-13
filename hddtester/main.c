@@ -312,6 +312,12 @@ void PrintHDDInfo()
 
     // Print model and serial numbers:
     scr_printf("HDD %d detected: %s - %s\n", device, modelNumber, serialNumber);
+    u8 sceSec[512] = {0};
+    if (fileXioDevctl(deviceString, ATA_DEVCTL_SCE_IDENTIFY, NULL, 0, &sceSec, sizeof(sceSec)) != 0)
+        scr_printf("\tNon-official SCE drive.\n", device);
+    else
+        scr_printf("\tOfficial SCE drive.\n", device);
+
 
     // Print command set/supported features info:
     u8 lba48Supported = ata_identify_data.CommandSetSupport.BigLba;
