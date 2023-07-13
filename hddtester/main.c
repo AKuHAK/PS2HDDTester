@@ -220,14 +220,19 @@ const char *SIZE_STRINGS[] =
         "MB",
         "GB",
         "TB",
-        "PB"};
+        "PB",
+};
 
 void GetHDDCapacity(u32 *pSize, u32 *pSizeStringIndex)
 {
     *pSizeStringIndex = 0;
+    u64 hddCapacityInSectors = 0;
 
     // Get the capacity of the HDD in bytes.
-    u64 hddCapacityInSectors = ((u64)ata_identify_data.Max48BitLBA[1] << 32) | (u64)ata_identify_data.Max48BitLBA[0];
+    if (ata_identify_data.CommandSetSupport.BigLba)
+        hddCapacityInSectors = ((u64)ata_identify_data.Max48BitLBA[1] << 32) | (u64)ata_identify_data.Max48BitLBA[0];
+    else
+        hddCapacityInSectors = (u64)ata_identify_data.UserAddressableSectors;
     u32 sectorSize = GetSectorSize();
     u64 hddCapacityInBytes = hddCapacityInSectors * sectorSize;
 
@@ -302,7 +307,6 @@ void PrintHDDInfo()
         else
             scr_printf("\tUDMA mode: ? / ?\n");
     }
-
 
     // Print capacity and sector size:
     u32 hddCapacity, hddSizeStringIndex;
