@@ -488,6 +488,7 @@ void RunRandomRawReadTest(u32 sizeInMb, u32 blockSizeInKb, int fullpass, int udm
 {
     hddAtaError_t errorInfo = {0};
     hddAtaSetMode_t setMode;
+    u64 hddCapacityInSectors;
     char deviceString[7];
     sprintf(deviceString, "xhdd%d:", device);
 
@@ -500,7 +501,10 @@ void RunRandomRawReadTest(u32 sizeInMb, u32 blockSizeInKb, int fullpass, int udm
         highestUDMAMode = udmaEnd;
 
     // Get the max LBA of the HDD.
-    u64 hddCapacityInSectors = ((u64)ata_identify_data.Max48BitLBA[1] << 32) | (u64)ata_identify_data.Max48BitLBA[0];
+    if (ata_identify_data.CommandSetSupport.BigLba)
+        hddCapacityInSectors = ((u64)ata_identify_data.Max48BitLBA[1] << 32) | (u64)ata_identify_data.Max48BitLBA[0];
+    else
+        hddCapacityInSectors = (u64)ata_identify_data.UserAddressableSectors;
 
     // Test MDMA modes
     if (udmaStart == -1) {
