@@ -97,7 +97,6 @@ int PollPadState(int port, int slot)
 #define SPEED_TEST_5 5
 #define SPEED_TEST_6 6
 #define SPEED_TEST_7 7
-#define SPEED_TEST_8 8
 
 int menu_id = MAIN_MENU;
 int menu_option_index = 0;
@@ -208,7 +207,7 @@ u32 GetSelectedMDMAMode()
 
 u32 GetSelectedPIOMode()
 {
-    // Check the highest UDMA mode selected.
+    // Check the highest PIO mode.
     for (int i = 4; i >= 0; i--) {
         // Check if the current UDMA mode is selected.
         if ((ata_identify_data.AdvancedPIOModes & (1 << i)) != 0)

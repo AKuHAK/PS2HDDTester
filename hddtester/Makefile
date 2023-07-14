@@ -14,7 +14,7 @@ EE_LIBS = -lpatches -lkernel -ldebug -lfileXio -lpad
 EE_CFLAGS += -fdata-sections -ffunction-sections -DDUMMY_TIMEZONE -DDUMMY_LIBC_INIT -DKERNEL_NOPATCH -D_EE -Wall -Wno-sizeof-pointer-memaccess -Wno-pointer-sign
 EE_LDFLAGS += -Wl,--gc-sections -T $(PS2SDK)/ee/startup/linkfile
 
-EE_INCS += -I$(PS2SDK)/ee/include -I$(PS2SDK)/common/include -I. -I../common
+EE_INCS += -I$(PS2SDK)/ee/include -I$(PS2SDK)/common/include -I. -I../common -I../iop/atad/include
 
 all: | $(IOP_IRXS) ps2atad.irx xhdd.irx $(EE_OBJS) $(EE_BIN)
 	echo "Compressing..."

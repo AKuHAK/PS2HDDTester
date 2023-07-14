@@ -1,13 +1,13 @@
 #include <loadcore.h>
 #include <stdio.h>
 #include <sysclib.h>
-#include <atad.h>
 #include <iomanX.h>
 #include <errno.h>
 #include <thbase.h>
 #include <sifman.h>
 #include <intrman.h>
 
+#include "atad.h"
 #include "opl-hdd-ioctl.h"
 
 #define MODNAME "xhdd"

@@ -1,7 +1,7 @@
-#include <atad.h>
 #include <atahw.h>
 #include <speedregs.h>
 
+#include "atad.h"
 #include "opl-hdd-ioctl.h"
 
 void ata_get_error_info(int *status, int *error)

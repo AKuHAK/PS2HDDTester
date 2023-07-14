@@ -28,7 +28,6 @@
 #include <stdio.h>
 #include <sysclib.h>
 #include <dev9.h>
-#include <atad.h>
 #ifdef ATA_ENABLE_BDM
 #include <bdm.h>
 #include <errno.h>
@@ -36,6 +35,7 @@
 
 #include <speedregs.h>
 #include <atahw.h>
+#include "atad.h"
 
 #define MODNAME "atad"
 // TODO: last sdk 3.1.0 has ATAD module version 2.9 with significant changes.
