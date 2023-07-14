@@ -97,6 +97,7 @@ int PollPadState(int port, int slot)
 #define SPEED_TEST_5 5
 #define SPEED_TEST_6 6
 #define SPEED_TEST_7 7
+#define SPEED_TEST_8 8
 
 int menu_id = MAIN_MENU;
 int menu_option_index = 0;
@@ -110,13 +111,13 @@ struct menu_option_info
 // Main menu options:
 struct menu_option_info main_menu_options[] =
     {
-        {"#1 Sequential raw read 64MB UDMA 4+ HDD->IOP", SPEED_TEST_1},
-        {"#2 Sequential raw read 64MB UDMA 4+ HDD->IOP->EE", SPEED_TEST_2},
-        {"#3 Random raw read 6MB UDMA 4+ HDD->IOP", SPEED_TEST_3},
-        {"#4 Random raw read 6MB UDMA 4+ HDD->IOP->EE", SPEED_TEST_4},
-        {"#5 Sequential raw read 16MB UDMA 0-4 HDD->IOP->EE", SPEED_TEST_5},
-        {"#6 Random raw read 6MB UDMA 0-4 HDD->IOP->EE", SPEED_TEST_6},
-        {"#7 Sequential raw read 64MB in 512kb blocks UDMA 0+ HDD->IOP", SPEED_TEST_7},
+        {"#1 Sequential raw read 64MB UDMA4+ HDD->IOP", SPEED_TEST_1},
+        {"#2 Sequential raw read 64MB UDMA4+ HDD->IOP->EE", SPEED_TEST_2},
+        {"#3 Random raw read 6MB UDMA4+ HDD->IOP", SPEED_TEST_3},
+        {"#4 Random raw read 6MB UDMA4+ HDD->IOP->EE", SPEED_TEST_4},
+        {"#5 Sequential raw read 16MB MDMA0+ HDD->IOP->EE", SPEED_TEST_5},
+        {"#6 Random raw read 6MB MDMA0+ HDD->IOP->EE", SPEED_TEST_6},
+        {"#7 Sequential raw read 64MB in 512kb blocks MDMA0+ HDD->IOP", SPEED_TEST_7},
 };
 static int main_menu_option_count = sizeof(main_menu_options) / sizeof(struct menu_option_info);
 
@@ -208,7 +209,7 @@ u32 GetSelectedMDMAMode()
 u32 GetSelectedPIOMode()
 {
     // Check the highest UDMA mode selected.
-    for (int i = 2; i >= 0; i--) {
+    for (int i = 4; i >= 0; i--) {
         // Check if the current UDMA mode is selected.
         if ((ata_identify_data.AdvancedPIOModes & (1 << i)) != 0)
             return i;
@@ -312,12 +313,12 @@ void PrintHDDInfo()
 
     // Print model and serial numbers:
     scr_printf("HDD %d detected: %s - %s\n", device, modelNumber, serialNumber);
+
     u8 sceSec[512] = {0};
     if (fileXioDevctl(deviceString, ATA_DEVCTL_SCE_IDENTIFY, NULL, 0, &sceSec, sizeof(sceSec)) != 0)
-        scr_printf("\tNon-official SCE drive.\n", device);
+        scr_printf("\tNon-official SCE drive.\n");
     else
-        scr_printf("\tOfficial SCE drive.\n", device);
-
+        scr_printf("\tOfficial SCE drive.\n");
 
     // Print command set/supported features info:
     u8 lba48Supported = ata_identify_data.CommandSetSupport.BigLba;
@@ -371,7 +372,6 @@ void RunSequentialRawReadTest(u32 sizeInMb, u32 blockSizeInKb, int fullpass, int
 {
     hddAtaError_t errorInfo = {0};
     hddAtaSetMode_t setMode;
-    setMode.type = ATA_XFER_MODE_UDMA;
     char deviceString[7];
     sprintf(deviceString, "xhdd%d:", device);
 
@@ -383,7 +383,59 @@ void RunSequentialRawReadTest(u32 sizeInMb, u32 blockSizeInKb, int fullpass, int
     if (udmaEnd != -1)
         highestUDMAMode = udmaEnd;
 
+    // Test MDMA modes
+    if (udmaStart == -1) {
+        setMode.type = ATA_XFER_MODE_MDMA;
+        for (int i = 0; i <= 2; i++) {
+            AlignedBlock crcErrorCount;
+            u64 elapsedTimeMsecEE;
+            AlignedBlock elapsedTimeMsecIOP;
+
+            // Set the MDMA mode.
+            setMode.mode = i;
+            fileXioDevctl(deviceString, ATA_DEVCTL_SET_TRANSFER_MODE, &setMode, sizeof(setMode), NULL, 0);
+
+            // Refresh the identify data so we can get an accurate MDMA speed.
+            fileXioDevctl(deviceString, ATA_DEVCTL_IDENTIFY, NULL, 0, &ata_identify_data, sizeof(ata_identify_data));
+            u32 mdmaModeUsed = GetSelectedMDMAMode();
+            if (mdmaModeUsed != 0xFFFFFFFF) {
+                // Run the read test.
+                int result = SequentialRawReadTest(device, sizeInMb, blockSizeInKb, iop_io_buffer, fullpass, &crcErrorCount.value, &elapsedTimeMsecEE, &elapsedTimeMsecIOP.value);
+
+                // Calculate read stats.
+                float timeInSecsEE = (float)((u32)elapsedTimeMsecEE) / 1000.0f;
+                // float timeInSecsIOP = (float)elapsedTimeMsecIOP.value;
+                u8 useTimeInMs = timeInSecsEE < 0.1f ? 1 : 0;
+                float transferSpeed = (float)sizeInMb / timeInSecsEE;
+
+                float timeValueEE = useTimeInMs == 1 ? (float)elapsedTimeMsecEE : timeInSecsEE;
+                // float timeValueIOP = useTimeInMs == 1 ? (float)elapsedTimeMsecIOP.value : timeInSecsIOP;
+                const char *timeUnits = useTimeInMs == 1 ? "ms" : "s";
+
+                if (crcErrorCount.value > 0xFFFFFFFF)
+                    crcErrorCount.value = 0xFFFFFFFF;
+
+                // Print the results.
+                if (result == 0 || result == ATA_RES_ERR_ICRC) {
+                    scr_printf("\tMDMA %d: %d\tTime: %.2f%s - %.2fMB/%s\tCRC Errors: %d\tStatus: %s\n",
+                               i, mdmaModeUsed, timeValueEE, timeUnits, transferSpeed, timeUnits, (u32)crcErrorCount.value, (crcErrorCount.value == 0 ? "PASSED" : "FAILED"));
+                } else {
+                    // Get extended ATA error info.
+                    fileXioDevctl(deviceString, ATA_DEVCTL_GET_ATA_ERROR, NULL, 0, &errorInfo, sizeof(errorInfo));
+                    if (result == ATA_RES_ERR_IO)
+                        scr_printf("\tIO Error: Status=0x%x Error=0x%x CRC Errors: %d\n", errorInfo.status, errorInfo.error, (u32)crcErrorCount.value);
+                    else if (result == ATA_RES_ERR_TIMEOUT)
+                        scr_printf("\tIO Timeout: Status=0x%x Error=0x%x CRC Errors: %d\n", errorInfo.status, errorInfo.error, (u32)crcErrorCount.value);
+                    else
+                        scr_printf("\tError %d Status=0x%x Error=0x%x CRC Errors: %d\n", result, errorInfo.status, errorInfo.error, (u32)crcErrorCount.value);
+                }
+            } else
+                scr_printf("\tMDMA %d: is not actually supported.\n", i);
+        }
+    }
+
     // Loop and try to perform the test on every UDMA mode requested.
+    setMode.type = ATA_XFER_MODE_UDMA;
     for (int i = udmaStart; i <= highestUDMAMode; i++) {
         AlignedBlock crcErrorCount;
         u64 elapsedTimeMsecEE;
@@ -396,7 +448,7 @@ void RunSequentialRawReadTest(u32 sizeInMb, u32 blockSizeInKb, int fullpass, int
         // Refresh the identify data so we can get an accurate UDMA speed.
         fileXioDevctl(deviceString, ATA_DEVCTL_IDENTIFY, NULL, 0, &ata_identify_data, sizeof(ata_identify_data));
         u32 udmaModeUsed = GetSelectedUDMAMode();
-        if (udmaModeUsed != "0xFFFFFFFF") {
+        if (udmaModeUsed != 0xFFFFFFFF) {
             // Run the read test.
             int result = SequentialRawReadTest(device, sizeInMb, blockSizeInKb, iop_io_buffer, fullpass, &crcErrorCount.value, &elapsedTimeMsecEE, &elapsedTimeMsecIOP.value);
 
@@ -428,7 +480,7 @@ void RunSequentialRawReadTest(u32 sizeInMb, u32 blockSizeInKb, int fullpass, int
                     scr_printf("\tError %d Status=0x%x Error=0x%x CRC Errors: %d\n", result, errorInfo.status, errorInfo.error, (u32)crcErrorCount.value);
             }
         } else
-            scr_printf("\tUDMA %d: is not actually supported", i);
+            scr_printf("\tUDMA %d: is not actually supported.\n", i);
     }
 }
 
@@ -436,7 +488,6 @@ void RunRandomRawReadTest(u32 sizeInMb, u32 blockSizeInKb, int fullpass, int udm
 {
     hddAtaError_t errorInfo = {0};
     hddAtaSetMode_t setMode;
-    setMode.type = ATA_XFER_MODE_UDMA;
     char deviceString[7];
     sprintf(deviceString, "xhdd%d:", device);
 
@@ -451,7 +502,59 @@ void RunRandomRawReadTest(u32 sizeInMb, u32 blockSizeInKb, int fullpass, int udm
     // Get the max LBA of the HDD.
     u64 hddCapacityInSectors = ((u64)ata_identify_data.Max48BitLBA[1] << 32) | (u64)ata_identify_data.Max48BitLBA[0];
 
+    // Test MDMA modes
+    if (udmaStart == -1) {
+        setMode.type = ATA_XFER_MODE_MDMA;
+        for (int i = 0; i <= 2; i++) {
+            AlignedBlock crcErrorCount;
+            u64 elapsedTimeMsecEE;
+            AlignedBlock elapsedTimeMsecIOP;
+
+            // Set the MDMA mode.
+            setMode.mode = i;
+            fileXioDevctl(deviceString, ATA_DEVCTL_SET_TRANSFER_MODE, &setMode, sizeof(setMode), NULL, 0);
+
+            // Refresh the identify data so we can get an accurate MDMA speed.
+            fileXioDevctl(deviceString, ATA_DEVCTL_IDENTIFY, NULL, 0, &ata_identify_data, sizeof(ata_identify_data));
+            u32 mdmaModeUsed = GetSelectedMDMAMode();
+            if (mdmaModeUsed != 0xFFFFFFFF) {
+                // Run the read test.
+                int result = RandomRawReadTest(device, sizeInMb, blockSizeInKb, iop_io_buffer, fullpass, hddCapacityInSectors, &crcErrorCount.value, &elapsedTimeMsecEE, &elapsedTimeMsecIOP.value);
+
+                // Calculate read stats.
+                float timeInSecsEE = (float)((u32)elapsedTimeMsecEE) / 1000.0f;
+                // float timeInSecsIOP = (float)elapsedTimeMsecIOP.value;
+                u8 useTimeInMs = timeInSecsEE < 0.1f ? 1 : 0;
+                float transferSpeed = (float)sizeInMb / timeInSecsEE;
+
+                float timeValueEE = useTimeInMs == 1 ? (float)elapsedTimeMsecEE : timeInSecsEE;
+                // float timeValueIOP = useTimeInMs == 1 ? (float)elapsedTimeMsecIOP.value : timeInSecsIOP;
+                const char *timeUnits = useTimeInMs == 1 ? "ms" : "s";
+
+                if (crcErrorCount.value > 0xFFFFFFFF)
+                    crcErrorCount.value = 0xFFFFFFFF;
+
+                // Print the results.
+                if (result == 0 || result == ATA_RES_ERR_ICRC) {
+                    scr_printf("\tMDMA %d: %d\tTime: %.2f%s - %.2fMB/%s\tCRC Errors: %d\tStatus: %s\n",
+                               i, mdmaModeUsed, timeValueEE, timeUnits, transferSpeed, timeUnits, (u32)crcErrorCount.value, (crcErrorCount.value == 0 ? "PASSED" : "FAILED"));
+                } else {
+                    // Get extended ATA error info.
+                    fileXioDevctl(deviceString, ATA_DEVCTL_GET_ATA_ERROR, NULL, 0, &errorInfo, sizeof(errorInfo));
+                    if (result == ATA_RES_ERR_IO)
+                        scr_printf("\tIO Error: Status=0x%x Error=0x%x CRC Errors: %d\n", errorInfo.status, errorInfo.error, (u32)crcErrorCount.value);
+                    else if (result == ATA_RES_ERR_TIMEOUT)
+                        scr_printf("\tIO Timeout: Status=0x%x Error=0x%x CRC Errors: %d\n", errorInfo.status, errorInfo.error, (u32)crcErrorCount.value);
+                    else
+                        scr_printf("\tError %d Status=0x%x Error=0x%x CRC Errors: %d\n", result, errorInfo.status, errorInfo.error, (u32)crcErrorCount.value);
+                }
+            } else
+                scr_printf("\tMDMA %d: is not actually supported.\n", i);
+        }
+    }
+
     // Loop and try to perform the test on every UDMA mode requested.
+    setMode.type = ATA_XFER_MODE_UDMA;
     for (int i = udmaStart; i <= highestUDMAMode; i++) {
         AlignedBlock crcErrorCount;
         u64 elapsedTimeMsecEE;
@@ -464,7 +567,7 @@ void RunRandomRawReadTest(u32 sizeInMb, u32 blockSizeInKb, int fullpass, int udm
         // Refresh the identify data so we can get an accurate UDMA speed.
         fileXioDevctl(deviceString, ATA_DEVCTL_IDENTIFY, NULL, 0, &ata_identify_data, sizeof(ata_identify_data));
         u32 udmaModeUsed = GetSelectedUDMAMode();
-        if (udmaModeUsed != "0xFFFFFFFF") {
+        if (udmaModeUsed != 0xFFFFFFFF) {
             // Run the read test.
             int result = RandomRawReadTest(device, sizeInMb, blockSizeInKb, iop_io_buffer, fullpass, hddCapacityInSectors, &crcErrorCount.value, &elapsedTimeMsecEE, &elapsedTimeMsecIOP.value);
 
@@ -496,7 +599,7 @@ void RunRandomRawReadTest(u32 sizeInMb, u32 blockSizeInKb, int fullpass, int udm
                     scr_printf("\tError %d Status=0x%x Error=0x%x CRC Errors: %d\n", result, errorInfo.status, errorInfo.error, (u32)crcErrorCount.value);
             }
         } else
-            scr_printf("\tUDMA %d: is not actually supported", i);
+            scr_printf("\tUDMA %d: is not actually supported.\n", i);
     }
 }
 
@@ -660,26 +763,26 @@ int main(int argc, char *argv[])
                 break;
             }
             case SPEED_TEST_5: {
-                // Sequential raw read 16MB UDMA 0-4 HDD->IOP->EE
-                RunSequentialRawReadTest(16, 2, 1, 0, 4);
-                RunSequentialRawReadTest(16, 4, 1, 0, 4);
-                RunSequentialRawReadTest(16, 16, 1, 0, 4);
-                RunSequentialRawReadTest(16, 32, 1, 0, 4);
+                // Sequential raw read 16MB MDMA0+ HDD->IOP->EE
+                RunSequentialRawReadTest(16, 2, 1, -1, -1);
+                RunSequentialRawReadTest(16, 4, 1, -1, -1);
+                RunSequentialRawReadTest(16, 16, 1, -1, -1);
+                RunSequentialRawReadTest(16, 32, 1, -1, -1);
                 TestEndCommon();
                 break;
             }
             case SPEED_TEST_6: {
-                // Random raw read 6MB UDMA 0-4 HDD->IOP->EE
-                RunRandomRawReadTest(6, 2, 1, 0, 4);
-                RunRandomRawReadTest(6, 4, 1, 0, 4);
-                RunRandomRawReadTest(6, 16, 1, 0, 4);
-                RunRandomRawReadTest(6, 32, 1, 0, 4);
+                // Random raw read 6MB MDMA0+ HDD->IOP->EE
+                RunRandomRawReadTest(6, 2, 1, -1, -1);
+                RunRandomRawReadTest(6, 4, 1, -1, -1);
+                RunRandomRawReadTest(6, 16, 1, -1, -1);
+                RunRandomRawReadTest(6, 32, 1, -1, -1);
                 TestEndCommon();
                 break;
             }
             case SPEED_TEST_7: {
-                // Sequential raw read 64MB in 512kb blocks UDMA 0+ HDD->IOP
-                RunSequentialRawReadTest(64, 512, 0, 0, -1);
+                // Sequential raw read 64MB in 512kb blocks MDMA 0+ HDD->IOP
+                RunSequentialRawReadTest(64, 512, 0, -1, -1);
                 TestEndCommon();
                 break;
             }

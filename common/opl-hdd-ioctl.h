@@ -18,6 +18,7 @@
 #define ATA_DEVCTL_DEVICE_SMART_STATUS   0x684B
 #define ATA_DEVCTL_SCE_IDENTIFY          0x684C
 
+#define ATA_XFER_MODE_PIO                0x08
 #define ATA_XFER_MODE_MDMA               0x20
 #define ATA_XFER_MODE_UDMA               0x40
 

@@ -10,10 +10,10 @@
 ATA_SCE_AUTH_HDD ?= 0
 
 # Enable to enable support for Multi-Word DMA (MWDMA) modes, as in early ATAD modules.
-ATA_MWDMA_MODES ?= 0
+ATA_MWDMA_MODES ?= 1
 
 # Enable to enable support for PIO modes 0-4 (as in early ATAD modules), instead of just PIO mode 0.
-ATA_ALL_PIO_MODES ?= 0
+ATA_ALL_PIO_MODES ?= 1
 
 # Disable to disable the workaround for bad GameStar compatible adaptors.
 ATA_GAMESTAR_WORKAROUND ?= 1
