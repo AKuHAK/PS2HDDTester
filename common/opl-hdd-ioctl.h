@@ -17,6 +17,7 @@
 #define ATA_DEVCTL_GET_ATA_ERROR         0x684A
 #define ATA_DEVCTL_DEVICE_SMART_STATUS   0x684B
 #define ATA_DEVCTL_SCE_IDENTIFY          0x684C
+#define ATA_DEVCTL_IDLEIMM               0x684D
 
 #define ATA_XFER_MODE_PIO                0x08
 #define ATA_XFER_MODE_MDMA               0x20

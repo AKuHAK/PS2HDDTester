@@ -216,6 +216,9 @@ static int xhddDevctl(iop_file_t *fd, const char *name, int cmd, void *arg, unsi
         case ATA_DEVCTL_DEVICE_SMART_STATUS: {
             return ata_device_smart_get_status(fd->unit);
         }
+        case ATA_DEVCTL_IDLEIMM: {
+            return ata_device_idle_immediate(fd->unit);
+        }
         default:
             return -EINVAL;
     }

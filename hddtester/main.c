@@ -735,6 +735,8 @@ int main(int argc, char *argv[])
                             menu_id = main_menu_options[menu_option_index].menu_id;
                         else if ((pad_buttons_raw & PAD_START) != 0 && (pad_buttons_raw & PAD_SELECT) != 0) {
                             // Restore exception handlers and exit.
+                            fileXioDevctl("xhdd0:", ATA_DEVCTL_IDLEIMM, NULL, 0, NULL, 0);
+                            fileXioDevctl("xhdd1:", ATA_DEVCTL_IDLEIMM, NULL, 0, NULL, 0);
                             restoreExceptionHandlers();
                             Exit(0);
                         } else
