@@ -1149,8 +1149,18 @@ static int ata_init_devices(ata_devinfo_t *devinfo)
 
         devinfo[i].security_status = ata_param[ATA_ID_SECURITY_STATUS];
 
-        /* Ultra DMA mode 4.  */
-        ata_device_set_transfer_mode(i, ATA_XFER_MODE_UDMA, 4);
+#define ATA_ID_UDMA_CONTROL 88
+        /* Failsafe Ultra DMA mode 4.  */
+        u8 udmaMode = 4;
+        /* Check the highest UDMA mode supported starting from UDMA 6. */
+        for (int j = 6; j >= 0; j--) {
+            /* Check if the current UDMA mode is supported, set it and exit from loop. */
+            if (((ata_param[ATA_ID_UDMA_CONTROL] & 0xFF) & (1 << j)) != 0) {
+                udmaMode = j;
+                break;
+            }
+        }
+        ata_device_set_transfer_mode(i, ATA_XFER_MODE_UDMA, udmaMode);
         ata_device_smart_enable(i);
         /* Set standby timer to 21min 15s.  */
         ata_device_idle(i, 0xff);

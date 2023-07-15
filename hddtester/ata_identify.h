@@ -68,7 +68,7 @@ typedef struct __attribute__((packed)) _IDENTIFY_DEVICE_DATA
     UCHAR CryptoScrambleExtCommandSupported : 1;
     UCHAR OverwriteExtCommandSupported      : 1;
     UCHAR BlockEraseExtCommandSupported     : 1;
-    ULONG UserAddressableSectors;
+    ULONG UserAddressableSectors; // 60
     USHORT ObsoleteWord62;
     USHORT MultiWordDMASupport : 8;
     USHORT MultiWordDMAActive  : 8;
@@ -180,7 +180,7 @@ typedef struct __attribute__((packed)) _IDENTIFY_DEVICE_DATA
         USHORT Reserved2             : 1;
         USHORT SetMax                : 1;
         USHORT Acoustics             : 1;
-        USHORT BigLba                : 1;
+        USHORT BigLba                : 1; // 83
         USHORT DeviceConfigOverlay   : 1;
         USHORT FlushCache            : 1;
         USHORT FlushCacheExt         : 1;
@@ -249,7 +249,7 @@ typedef struct __attribute__((packed)) _IDENTIFY_DEVICE_DATA
         USHORT IdleWithUnloadFeature : 1;
         USHORT Reserved4             : 2;
     } CommandSetActive;
-    USHORT UltraDMASupport : 8;
+    USHORT UltraDMASupport : 8; // 88
     USHORT UltraDMAActive  : 8;
     struct
     {
@@ -271,7 +271,7 @@ typedef struct __attribute__((packed)) _IDENTIFY_DEVICE_DATA
     USHORT StreamingTransferTimeDMA;
     USHORT StreamingAccessLatencyDMAPIO;
     ULONG StreamingPerfGranularity;
-    ULONG Max48BitLBA[2];
+    ULONG Max48BitLBA[2]; // 100
     USHORT StreamingTransferTime;
     USHORT DsmCap;
     struct
