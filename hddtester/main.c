@@ -316,8 +316,16 @@ void PrintHDDInfo()
     u8 sceSec[512] = {0};
     if (fileXioDevctl(deviceString, ATA_DEVCTL_SCE_IDENTIFY, NULL, 0, &sceSec, sizeof(sceSec)) != 0)
         scr_printf("\tNon-official SCE drive.\n");
-    else
+    else {
         scr_printf("\tOfficial SCE drive.\n");
+        // Print the contents of sceSec in hexadecimal form
+        for (int i = 0; i < 128; i++) {
+            _print("%02x ", sceSec[i]);
+            if ((i + 1) % 32 == 0) {
+                _print("\n"); // Newline every 16 elements for better readability
+            }
+        }
+    }
 
     // Print command set/supported features info:
     u8 lba48Supported = ata_identify_data.CommandSetSupport.BigLba;
